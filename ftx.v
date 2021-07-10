@@ -9,13 +9,13 @@ const (
 	// If the difference between the time we see a message and the
 	// messages reported timestamp eclipses this millisecond threshold,
 	// consider the message stale.
-	max_age = 5000
+	max_age       = 5000
 
 	// Send {"op": "ping"} messages at regular intervals
 	ping_interval = 15000
 
 	// The path to log socket messages to
-	path = "ftx.log"
+	path          = 'ftx.log'
 )
 
 // WS subscription message
@@ -57,8 +57,10 @@ struct SocketClose {
 // Websocket handler extracts these two fields to send off to a monitoring
 // process after logging the full message data to disk.
 struct LatencyData {
-	time       time.Time // time FTX reported for the message
-	latency_ms f64       // difference between that time and the time we saw
+	time       time.Time
+	// time FTX reported for the message
+	latency_ms f64
+	// difference between that time and the time we saw
 }
 
 // Function which consumes LatencyData from the given channel in a loop,
@@ -104,7 +106,7 @@ fn monitor_latency(interval u64, ch chan LatencyData, mut logger log.Log) {
 				} else {
 					term.red('${avg:.3f}s')
 				}
-				logger.info('Average latency of ${avg_str} across ${term.blue(n.str())} msgs ($stale_str)')
+				logger.info('Average latency of $avg_str across ${term.blue(n.str())} msgs ($stale_str)')
 			} else {
 				logger.info('No messages seen during interval')
 			}
@@ -128,10 +130,12 @@ mut:
 	flog &os.File
 }
 
-fn ping_at_intervals(mut c &websocket.Client, mut log &os.File) ? {
+fn ping_at_intervals(mut c websocket.Client, mut log os.File) ? {
 	msg := '{"op": "ping"}'
 	for {
-		if c.state != websocket.State.open { break }
+		if c.state != websocket.State.open {
+			break
+		}
 		c.write_string(msg) ?
 		log.writeln('OUT $time.utc().format_ss_micro() $msg') ?
 		time.sleep(ping_interval * time.millisecond)
@@ -140,7 +144,7 @@ fn ping_at_intervals(mut c &websocket.Client, mut log &os.File) ? {
 
 fn main() {
 	// Read the markets to consume data from
-	markets := os.args[1..].map(it.trim_space()).filter(it != "")
+	markets := os.args[1..].map(it.trim_space()).filter(it != '')
 	if markets.len == 0 {
 		println('Usage: ftx [markets]...')
 		println('E.g. ftx BTC/USD BTC-PERP')
@@ -160,7 +164,7 @@ fn main() {
 
 	// Once open, subscribe to order book messages
 	ws.on_open_ref(fn (mut c websocket.Client, mut refs WSHandlerRefs) ? {
-		c.logger.info(term.green("Writing socket message log to ${path}..."))
+		c.logger.info(term.green('Writing socket message log to ${path}...'))
 		refs.flog.writeln('CONNECTED $time.utc().format_ss_micro()') ?
 		c.logger.info('Subscribing to ${term.blue(refs.markets.len.str())} books...')
 
@@ -232,12 +236,12 @@ fn main() {
 	go ping_at_intervals(mut ws, mut &logf)
 
 	// Exit if the user enters a new line
-	ws.logger.info(term.green("Started all processes. Enter a blank line to exit."))
+	ws.logger.info(term.green('Started all processes. Enter a blank line to exit.'))
 	_ := os.get_line()
-	ws.logger.info("Saw blank line, shutting down...")
+	ws.logger.info('Saw blank line, shutting down...')
 
-	ws.close(0, 'closed by client') or { println("Failed to close socket client") }
-	refs.flog.writeln('EXIT $time.utc().format_ss_micro()') or { println("Failed to write exit") }
+	ws.close(0, 'closed by client') or { println('Failed to close socket client') }
+	refs.flog.writeln('EXIT $time.utc().format_ss_micro()') or { println('Failed to write exit') }
 	refs.flog.close()
 
 	exit(0)
